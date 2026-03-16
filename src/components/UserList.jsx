@@ -70,6 +70,7 @@ export default function UserList() {
         if (confirm("Delete this user?")) {
             dispatch(removeUser({ id, token })).unwrap()
                 .then(() => {
+                    toast.success("User deleted successfully!");
                     loadUsers();
                 })
                 .catch((err) => {
@@ -82,6 +83,7 @@ export default function UserList() {
     const handleRoleChange = (id, newType) => {
         dispatch(changeRole({ id, role: newType, token })).unwrap()
             .then(() => {
+                toast.success("Role updated successfully!");
                 loadUsers();
             })
             .catch((err) => {

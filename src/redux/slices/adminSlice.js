@@ -1,5 +1,4 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { toast } from "sonner";
 import { getTickets } from "../../api/ticket";
 import { getUsers, updateUser, deleteUser } from "../../api/user";
 
@@ -28,7 +27,6 @@ export const fetchAdminStats = createAsyncThunk(
             };
         } catch (err) {
             const message = err.response?.data?.error || "Failed to fetch admin stats";
-            toast.error(message);
             return thunkAPI.rejectWithValue(message);
         }
     }
@@ -43,7 +41,6 @@ export const fetchAdminUsers = createAsyncThunk(
             return res.data;
         } catch (err) {
             const message = err.response?.data?.error || "Failed to fetch users";
-            toast.error(message);
             return thunkAPI.rejectWithValue(message);
         }
     }
@@ -58,7 +55,6 @@ export const updateUserRole = createAsyncThunk(
             return res.data.data;
         } catch (err) {
             const message = err.response?.data?.error || "Failed to update user role";
-            toast.error(message);
             return thunkAPI.rejectWithValue(message);
         }
     }
@@ -73,7 +69,6 @@ export const removeAdminUser = createAsyncThunk(
             return id;
         } catch (err) {
             const message = err.response?.data?.error || "Failed to remove user";
-            toast.error(message);
             return thunkAPI.rejectWithValue(message);
         }
     }

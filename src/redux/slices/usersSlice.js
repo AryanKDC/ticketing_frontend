@@ -1,6 +1,5 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { getUsers, deleteUser, updateUser, changeUserRole } from "../../api/user";
-import { toast } from 'sonner';
 
 export const fetchUsers = createAsyncThunk(
     "users/fetchUsers",
@@ -10,7 +9,6 @@ export const fetchUsers = createAsyncThunk(
             return res.data;
         } catch (err) {
             const message = err.response?.data?.error || "Failed to fetch users";
-            toast.error(message);
             return thunkAPI.rejectWithValue(message);
         }
     }
@@ -24,7 +22,6 @@ export const removeUser = createAsyncThunk(
             return id;
         } catch (err) {
             const message = err.response?.data?.error || "Failed to delete user";
-            toast.error(message);
             return thunkAPI.rejectWithValue(message);
         }
     }
@@ -38,7 +35,6 @@ export const editUser = createAsyncThunk(
             return res.data.data;
         } catch (err) {
             const message = err.response?.data?.error || "Failed to update user";
-            toast.error(message);
             return thunkAPI.rejectWithValue(message);
         }
     }
@@ -49,11 +45,10 @@ export const changeRole = createAsyncThunk(
     async ({ id, role, token }, thunkAPI) => {
         try {
             const res = await changeUserRole(id, role, token);
-            toast.success("Role updated successfully!");
+
             return res.data.data;
         } catch (err) {
             const message = err.response?.data?.error || "Failed to change role";
-            toast.error(message);
             return thunkAPI.rejectWithValue(message);
         }
     }

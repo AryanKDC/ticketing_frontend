@@ -4,6 +4,7 @@ import { login, clearAuthError } from "../../redux/slices/authSlice";
 import { Formik, Form, Field, ErrorMessage } from "formik";
 import * as Yup from "yup";
 import { useNavigate, Link } from "react-router-dom";
+import { toast } from 'sonner';
 import { InputAdornment, IconButton } from "@mui/material";
 import { useEffect, useState } from "react";
 import Visibility from "@mui/icons-material/Visibility";
@@ -35,7 +36,10 @@ export default function LoginPage() {
     const handleSubmit = async (values) => {
         const resultAction = await dispatch(login(values));
         if (login.fulfilled.match(resultAction)) {
+            toast.success(`Welcome back, ${resultAction.payload.user.name}!`);
             navigate("/tickets");
+        } else {
+            toast.error(resultAction.payload || "Login failed");
         }
     };
 

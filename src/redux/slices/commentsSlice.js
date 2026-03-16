@@ -1,5 +1,4 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { toast } from "sonner";
 import { getTicketComments, addTicketComment } from "../../api/ticket";
 import { deleteComment } from "../../api/comment";
 
@@ -12,7 +11,6 @@ export const fetchComments = createAsyncThunk(
             return res.data.data;
         } catch (err) {
             const message = err.response?.data?.error || "Failed to fetch comments";
-            toast.error(message);
             return thunkAPI.rejectWithValue(message);
         }
     }
@@ -24,11 +22,10 @@ export const addComment = createAsyncThunk(
     async ({ ticketId, data, token }, thunkAPI) => {
         try {
             const res = await addTicketComment(ticketId, data, token);
-            toast.success("Comment added!");
+
             return res.data.data;
         } catch (err) {
             const message = err.response?.data?.error || "Failed to add comment";
-            toast.error(message);
             return thunkAPI.rejectWithValue(message);
         }
     }
@@ -43,7 +40,6 @@ export const removeComment = createAsyncThunk(
             return id;
         } catch (err) {
             const message = err.response?.data?.error || "Failed to delete comment";
-            toast.error(message);
             return thunkAPI.rejectWithValue(message);
         }
     }

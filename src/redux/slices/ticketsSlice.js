@@ -1,5 +1,4 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { toast } from "sonner";
 import { getTickets, createTicket, updateTicket, deleteTicket, getTicketById } from "../../api/ticket";
 
 // Fetch all tickets (with filters/pagination)
@@ -11,7 +10,6 @@ export const fetchTickets = createAsyncThunk(
             return res.data;
         } catch (err) {
             const message = err.response?.data?.error || "Failed to fetch tickets";
-            toast.error(message);
             return thunkAPI.rejectWithValue(message);
         }
     }
@@ -26,7 +24,6 @@ export const fetchTicketById = createAsyncThunk(
             return res.data.data;
         } catch (err) {
             const message = err.response?.data?.error || "Failed to fetch ticket";
-            toast.error(message);
             return thunkAPI.rejectWithValue(message);
         }
     }
@@ -38,11 +35,10 @@ export const addTicket = createAsyncThunk(
     async ({ data, token }, thunkAPI) => {
         try {
             const res = await createTicket(data, token);
-            toast.success("Ticket created successfully!");
+
             return res.data.data;
         } catch (err) {
             const message = err.response?.data?.error || "Failed to create ticket";
-            toast.error(message);
             return thunkAPI.rejectWithValue(message);
         }
     }
@@ -54,11 +50,10 @@ export const editTicket = createAsyncThunk(
     async ({ id, data, token }, thunkAPI) => {
         try {
             const res = await updateTicket(id, data, token);
-            toast.success("Ticket updated successfully!");
+
             return res.data.data;
         } catch (err) {
             const message = err.response?.data?.error || "Failed to update ticket";
-            toast.error(message);
             return thunkAPI.rejectWithValue(message);
         }
     }
@@ -70,11 +65,10 @@ export const removeTicket = createAsyncThunk(
     async ({ id, token }, thunkAPI) => {
         try {
             await deleteTicket(id, token);
-            toast.success("Ticket deleted successfully!");
+
             return id;
         } catch (err) {
             const message = err.response?.data?.error || "Failed to delete ticket";
-            toast.error(message);
             return thunkAPI.rejectWithValue(message);
         }
     }
@@ -86,11 +80,10 @@ export const assignTicket = createAsyncThunk(
     async ({ id, data, token }, thunkAPI) => {
         try {
             const res = await updateTicket(id, data, token);
-            toast.success("Ticket assigned successfully!");
+
             return res.data.data;
         } catch (err) {
             const message = err.response?.data?.error || "Failed to assign ticket";
-            toast.error(message);
             return thunkAPI.rejectWithValue(message);
         }
     }

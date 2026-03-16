@@ -4,6 +4,7 @@ import { register, clearAuthError } from "../../redux/slices/authSlice";
 import { Formik, Form, Field, ErrorMessage } from "formik";
 import * as Yup from "yup";
 import { useNavigate, Link } from "react-router-dom";
+import { toast } from 'sonner';
 import { useEffect, useState } from "react";
 import { InputAdornment, IconButton } from "@mui/material";
 import Visibility from "@mui/icons-material/Visibility";
@@ -32,7 +33,10 @@ export default function RegisterPage() {
     const handleSubmit = async (values) => {
         const resultAction = await dispatch(register(values));
         if (register.fulfilled.match(resultAction)) {
+            toast.success("Account created successfully!");
             navigate("/tickets");
+        } else {
+            toast.error(resultAction.payload || "Registration failed");
         }
     };
 

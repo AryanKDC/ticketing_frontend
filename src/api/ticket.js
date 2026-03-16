@@ -5,7 +5,10 @@ const API_URL = import.meta.env.VITE_API_URL + "/tickets";
 // Create a new ticket
 export const createTicket = (data, token) =>
     axios.post(API_URL, data, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+            Authorization: `Bearer ${token}`,
+            ...(data instanceof FormData ? { 'Content-Type': 'multipart/form-data' } : {})
+        },
     });
 
 // Get all tickets (with optional query params)
@@ -42,5 +45,8 @@ export const getTicketComments = (ticketId, token) =>
 // Add a comment to a specific ticket
 export const addTicketComment = (ticketId, data, token) =>
     axios.post(`${API_URL}/${ticketId}/comments`, data, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+            Authorization: `Bearer ${token}`,
+            ...(data instanceof FormData ? { 'Content-Type': 'multipart/form-data' } : {})
+        },
     });

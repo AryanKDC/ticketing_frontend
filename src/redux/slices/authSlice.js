@@ -1,5 +1,4 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { toast } from "sonner";
 import { loginUser, registerUser } from "../../api/user";
 
 // Load persisted auth from localStorage
@@ -11,11 +10,10 @@ export const login = createAsyncThunk("auth/login", async (data, thunkAPI) => {
         const res = await loginUser(data);
         localStorage.setItem("token", res.data.token);
         localStorage.setItem("user", JSON.stringify(res.data.user));
-        toast.success(`Welcome back, ${res.data.user.name}!`);
+
         return res.data;
     } catch (err) {
         const message = err.response?.data?.error || "Login failed";
-        toast.error(message);
         return thunkAPI.rejectWithValue(message);
     }
 });
@@ -25,11 +23,10 @@ export const register = createAsyncThunk("auth/register", async (data, thunkAPI)
         const res = await registerUser(data);
         localStorage.setItem("token", res.data.token);
         localStorage.setItem("user", JSON.stringify(res.data.data));
-        toast.success("Account created successfully!");
+
         return res.data;
     } catch (err) {
         const message = err.response?.data?.message || err.response?.data?.error || "Registration failed";
-        toast.error(message);
         return thunkAPI.rejectWithValue(message);
     }
 });

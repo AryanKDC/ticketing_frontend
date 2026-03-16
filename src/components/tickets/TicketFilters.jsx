@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
     Box,
     Typography,
@@ -10,10 +10,14 @@ import {
     DialogContent,
     DialogActions,
     TextField,
+    Stack,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
+import AttachFileIcon from '@mui/icons-material/AttachFile';
+import CloseIcon from '@mui/icons-material/Close';
 import { useDispatch, useSelector } from 'react-redux';
 import { setFilters, addTicket } from '../../redux/slices/ticketsSlice';
+import { toast } from 'sonner';
 
 const TicketFilters = () => {
     const dispatch = useDispatch();
@@ -21,19 +25,37 @@ const TicketFilters = () => {
     const { token, user: currentUser } = useSelector((state) => state.auth);
 
     const [createDialogOpen, setCreateDialogOpen] = useState(false);
-    const [newTicket, setNewTicket] = useState({ subject: '', description: '', attachments: '' });
+    const [newTicket, setNewTicket] = useState({ subject: '', description: '' });
+    const [selectedFiles, setSelectedFiles] = useState([]);
+    const fileInputRef = useRef(null);
 
     const isSupport = currentUser?.type === 'support';
 
-    const handleCreateTicket = () => {
+    const handleFileSelect = (e) => {
+        const files = Array.from(e.target.files);
+        setSelectedFiles(prev => [...prev, ...files].slice(0, 5));
+        e.target.value = '';
+    };
+
+    const handleRemoveFile = (index) => {
+        setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const handleCreateTicket = async () => {
         if (!newTicket.subject.trim() || !newTicket.description.trim()) return;
-        const ticketData = {
-            ...newTicket,
-            attachments: newTicket.attachments.trim() ? [newTicket.attachments.trim()] : []
-        };
-        dispatch(addTicket({ data: ticketData, token }));
-        setNewTicket({ subject: '', description: '', attachments: '' });
-        setCreateDialogOpen(false);
+        const formData = new FormData();
+        formData.append('subject', newTicket.subject);
+        formData.append('description', newTicket.description);
+        selectedFiles.forEach(file => formData.append('attachments', file));
+        try {
+            await dispatch(addTicket({ data: formData, token })).unwrap();
+            toast.success("Ticket created successfully!");
+            setNewTicket({ subject: '', description: '' });
+            setSelectedFiles([]);
+            setCreateDialogOpen(false);
+        } catch (err) {
+            toast.error(err || "Failed to create ticket");
+        }
     };
 
 
@@ -192,19 +214,52 @@ const TicketFilters = () => {
                         }}
                     />
 
-                    <TextField
-                        label="Attachment URL (Optional)"
-                        fullWidth
-                        value={newTicket.attachments}
-                        onChange={(e) => setNewTicket({ ...newTicket, attachments: e.target.value })}
-                        placeholder="https://example.com/image.png"
-                        size="small"
-                        sx={{
-                            '& .MuiOutlinedInput-root': {
-                                borderRadius: '10px',
-                            }
-                        }}
+                    <input
+                        type="file"
+                        multiple
+                        ref={fileInputRef}
+                        onChange={handleFileSelect}
+                        style={{ display: 'none' }}
+                        accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
                     />
+                    <Button
+                        variant="outlined"
+                        startIcon={<AttachFileIcon />}
+                        onClick={() => fileInputRef.current?.click()}
+                        sx={{
+                            borderRadius: '10px',
+                            textTransform: 'none',
+                            fontWeight: 600,
+                            fontSize: '0.8rem',
+                            borderStyle: 'dashed',
+                            color: 'text.secondary',
+                            borderColor: '#CBD5E1',
+                            '&:hover': { borderColor: 'primary.main', bgcolor: 'rgba(0,97,255,0.04)' }
+                        }}
+                    >
+                        Attach Files (max 5)
+                    </Button>
+                    {selectedFiles.length > 0 && (
+                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
+                            {selectedFiles.map((file, idx) => (
+                                <Chip
+                                    key={idx}
+                                    label={file.name}
+                                    size="small"
+                                    onDelete={() => handleRemoveFile(idx)}
+                                    deleteIcon={<CloseIcon sx={{ fontSize: 14 }} />}
+                                    sx={{
+                                        borderRadius: '8px',
+                                        fontSize: '0.72rem',
+                                        fontWeight: 500,
+                                        bgcolor: '#EFF6FF',
+                                        color: '#1E40AF',
+                                        border: '1px solid #BFDBFE'
+                                    }}
+                                />
+                            ))}
+                        </Stack>
+                    )}
                 </DialogContent>
 
                 <DialogActions sx={{ px: 2, pb: 2, gap: 0.5 }}>
