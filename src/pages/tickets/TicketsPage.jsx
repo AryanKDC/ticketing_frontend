@@ -37,27 +37,42 @@ const TicketsPage = () => {
 
     return (
         <MainLayout>
-            <Box sx={{ p: 4, height: '100%', overflow: 'auto' }}>
-                <Typography variant="h5" sx={{ mb: 4, fontWeight: 600, color: '#172b4d' }}>
+            <Box sx={{
+                p: { xs: 0.5, md: 1 },
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden'
+            }}>
+                <Typography variant="h6" sx={{ mb: 1, fontWeight: 700, color: '#1E293B', px: 1 }}>
                     Ticket Management
                 </Typography>
 
-                <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, bgcolor: 'background.default' }}>
+                <Box sx={{
+                    flex: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    minWidth: 0,
+                    bgcolor: 'background.default',
+                    overflow: 'hidden',
+                    borderRadius: 2,
+                    border: '1px solid #E2E8F0'
+                }}>
                     {!id ? (
-                        <>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
                             <TicketFilters />
                             <TicketTable
                                 onTicketClick={handleTicketClick}
                                 selectedTicketId={selectedTicket?.id}
                             />
-                        </>
+                        </Box>
                     ) : selectedTicket ? (
                         <TicketDetail
                             ticket={selectedTicket}
                             onClose={handleCloseDetail}
                         />
                     ) : (
-                        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 10 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
                             <CircularProgress />
                         </Box>
                     )}

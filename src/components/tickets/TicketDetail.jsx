@@ -26,7 +26,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { toast } from 'sonner';
 import AssignModal from '../common/AssignModel';
 import socket from '../../socketio/socket';
-import { receiveComment, fetchComments, addComment, removeComment, clearComments } from '../../redux/slices/commentsSlice';
+import { receiveComment, fetchComments, addComment, removeComment, clearComments, removeCommentLocal } from '../../redux/slices/commentsSlice';
 import { editTicket, fetchTickets, assignTicket } from '../../redux/slices/ticketsSlice';
 import { fetchUsers } from '../../redux/slices/usersSlice';
 
@@ -46,6 +46,7 @@ const TicketDetail = ({ ticket, onClose }) => {
     const [assignModalOpen, setAssignModalOpen] = useState(false);
     const [assignee, setAssignee] = useState('');
     const fileInputRef = useRef(null);
+    const messagesEndRef = useRef(null);
 
     const dispatch = useDispatch();
     const { comments } = useSelector((state) => state.comments);
@@ -74,13 +75,40 @@ const TicketDetail = ({ ticket, onClose }) => {
             dispatch(receiveComment(comment));
         };
 
+        const handleDeleteCommentSocket = (comment) => {
+            const commentId = typeof comment === 'string' ? comment : comment._id;
+            dispatch(removeCommentLocal(commentId));
+            // No need to show toast for every deletion, it might be annoying, 
+            // but let's keep it brief if needed. Actually, let's omit the toast for now.
+        };
+
+        const handleTicketUpdatedSocket = (updatedTicket) => {
+            if (updatedTicket._id === ticketId) {
+                // If we are viewing this ticket, refresh the list which will trigger a re-render if needed
+                dispatch(fetchTickets({ token, params: filters }));
+            }
+        };
+
+        const handleTicketDeletedSocket = (deletedTicketId) => {
+            if (deletedTicketId === ticketId) {
+                toast.error("This ticket has been deleted");
+                onClose();
+            }
+        };
+
         socket.on("newComment", handleNewComment);
+        socket.on("deleteComment", handleDeleteCommentSocket);
+        socket.on("ticketUpdated", handleTicketUpdatedSocket);
+        socket.on("ticketDeleted", handleTicketDeletedSocket);
 
         return () => {
             socket.emit("leaveTicket", ticketId);
             socket.off("newComment", handleNewComment);
+            socket.off("deleteComment", handleDeleteCommentSocket);
+            socket.off("ticketUpdated", handleTicketUpdatedSocket);
+            socket.off("ticketDeleted", handleTicketDeletedSocket);
         };
-    }, [ticketId, dispatch]);
+    }, [ticketId, dispatch, token, filters, onClose]);
 
     useEffect(() => {
         if (token && (isAdmin || isSupport)) {
@@ -96,6 +124,16 @@ const TicketDetail = ({ ticket, onClose }) => {
             dispatch(clearComments());
         };
     }, [dispatch, token, ticketId]);
+
+    const scrollToBottom = () => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    };
+
+    useEffect(() => {
+        if (comments.length > 0) {
+            scrollToBottom();
+        }
+    }, [comments]);
 
     const handleSendMessage = async () => {
         if (!replyText.trim() && selectedFiles.length === 0) return;
@@ -172,7 +210,7 @@ const TicketDetail = ({ ticket, onClose }) => {
         }
     };
 
-    const handleDeleteComment = (commentId) => {
+    const confirmDeleteComment = (commentId) => {
         toast('Are you sure you want to delete this comment?', {
             description: "This action cannot be undone.",
             action: {
@@ -184,7 +222,7 @@ const TicketDetail = ({ ticket, onClose }) => {
                             {
                                 loading: 'Deleting...',
                                 success: () => {
-                                    dispatch(fetchComments({ ticketId, token }));
+                                    // Local state will be updated via socket
                                     return 'Comment deleted';
                                 },
                                 error: (err) => typeof err === 'string' ? err : (err?.message || 'Failed to delete comment'),
@@ -307,280 +345,365 @@ const TicketDetail = ({ ticket, onClose }) => {
     );
 
     return (
-        <>
-            <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', bgcolor: '#fff', overflow: 'hidden' }}>
-
-                {/* Header */}
-                <Box sx={{
-                    px: 3,
-                    py: 1.5,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    bgcolor: '#1E293B',
-                    color: '#fff',
-                    zIndex: 10,
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                }}>
-                    <Stack direction="row" spacing={2} alignItems="center">
-                        <Tooltip title="Back">
-                            <IconButton
-                                onClick={onClose}
-                                size="small"
-                                sx={{ color: '#94A3B8', '&:hover': { color: '#fff', bgcolor: 'rgba(255,255,255,0.1)' } }}
-                            >
-                                <ArrowBackIcon fontSize="small" />
-                            </IconButton>
-                        </Tooltip>
-                        <Box>
-                            <Typography variant="caption" sx={{ color: '#94A3B8', fontWeight: 600, display: 'block', lineHeight: 1, mb: 0.5 }}>
-                                TICKET VIEW
+        <Box sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            height: '100%',
+            width: '100%',
+            overflow: 'hidden'
+        }}>
+            {/* Main Header */}
+            <Box sx={{
+                px: 2.5,
+                py: 0.4,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                bgcolor: '#1E293B',
+                color: '#fff',
+                zIndex: 10,
+                boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+            }}>
+                <Stack direction="row" spacing={2} alignItems="center">
+                    <Tooltip title="Back">
+                        <IconButton
+                            onClick={onClose}
+                            size="small"
+                            sx={{ color: '#94A3B8', '&:hover': { color: '#fff', bgcolor: 'rgba(255,255,255,0.1)' } }}
+                        >
+                            <ArrowBackIcon fontSize="small" />
+                        </IconButton>
+                    </Tooltip>
+                    <Box>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                            <Typography variant="caption" sx={{ color: '#94A3B8', fontWeight: 600, letterSpacing: '0.05em' }}>
+                                TICKET
                             </Typography>
-                            <Typography variant="body2" sx={{ color: '#fff', fontWeight: 700, letterSpacing: '0.02em' }}>
+                            <Typography variant="body2" sx={{ color: '#fff', fontWeight: 700 }}>
                                 #{ticket.ticketId || 'null'}
                             </Typography>
-                        </Box>
-                    </Stack>
-
-                    <Stack direction="row" spacing={1} alignItems="center">
-                        <Chip
-                            label={statusKey.toUpperCase()}
-                            size="small"
-                            sx={{
-                                bgcolor: statusColor,
-                                color: '#fff',
-                                fontWeight: 800,
-                                fontSize: '0.65rem',
-                                height: 24,
-                                px: 1
-                            }}
-                        />
-                        <Divider orientation="vertical" flexItem sx={{ bgcolor: 'rgba(255,255,255,0.1)', mx: 1 }} />
-                        <IconButton size="small" onClick={onClose} sx={{ color: '#94A3B8', '&:hover': { color: '#ef4444' } }}>
-                            <CloseIcon />
-                        </IconButton>
-                    </Stack>
-                </Box>
-
-                <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-
-                    {/* Left Content */}
-                    <Box sx={{ flex: 1, overflowY: 'auto', px: { xs: 3, md: 6 }, py: 4 }}>
-                        <Typography variant="h5" sx={{ fontWeight: 800, mb: 1, color: '#0F172A', letterSpacing: '-0.02em' }}>
+                        </Stack>
+                        <Typography variant="subtitle2" sx={{ color: '#E2E8F0', fontWeight: 600, maxWidth: 400, noWrap: true, textOverflow: 'ellipsis', display: 'block' }}>
                             {ticket.subject}
                         </Typography>
+                    </Box>
+                </Stack>
 
-                        <Typography variant="caption" sx={{ color: 'text.disabled', mb: 4, display: 'block' }}>
-                            Opened {new Date(ticket.createdAt).toLocaleString()}
-                        </Typography>
+                <Stack direction="row" spacing={1} alignItems="center">
+                    <Chip
+                        label={statusKey.toUpperCase()}
+                        size="small"
+                        sx={{
+                            bgcolor: statusColor,
+                            color: '#fff',
+                            fontWeight: 800,
+                            fontSize: '0.65rem',
+                            height: 24,
+                            px: 1,
+                            borderRadius: '4px'
+                        }}
+                    />
+                    <Divider orientation="vertical" flexItem sx={{ bgcolor: 'rgba(255,255,255,0.1)', mx: 1 }} />
+                    <IconButton size="small" onClick={onClose} sx={{ color: '#94A3B8', '&:hover': { color: '#ef4444' } }}>
+                        <CloseIcon fontSize="small" />
+                    </IconButton>
+                </Stack>
+            </Box>
 
-                        {/* Description Area */}
-                        <Box sx={{ mb: 6 }}>
-                            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
-                                <DescriptionOutlinedIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
-                                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.primary' }}>Description</Typography>
-                            </Stack>
-                            <Box sx={{
-                                p: 3,
-                                bgcolor: '#F8FAFC',
-                                borderRadius: 2,
-                                border: '1px solid #E2E8F0',
-                                whiteSpace: 'pre-wrap'
-                            }}>
-                                <Typography variant="body1" sx={{ color: '#334155', lineHeight: 1.7, fontSize: '0.95rem' }}>
-                                    {ticket.description || "No description provided."}
-                                </Typography>
-                                {renderAttachments(ticket.attachments)}
-                            </Box>
-                        </Box>
+            <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
-                        {/* Activity / Comments Header */}
-                        <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 2 }}>
-                            <Typography variant="h6" sx={{ fontWeight: 800, fontSize: '1.1rem' }}>
-                                Conversation History
+                {/* LEFT PANEL: Ticket Details (Metadata & Description) */}
+                <Box sx={{
+                    width: { lg: 380, xl: 420 },
+                    borderRight: '1px solid #E2E8F0',
+                    display: { xs: 'none', lg: 'flex' },
+                    flexDirection: 'column',
+                    bgcolor: '#fff',
+                    overflow: 'hidden'
+                }}>
+                    <Box sx={{ flex: 1, overflowY: 'auto', p: 3 }}>
+                        <SidebarItem label="Description">
+                            <Typography variant="body2" sx={{ color: '#334155', mb: 2, lineHeight: 1.7, whiteSpace: 'pre-wrap', fontSize: '0.9rem' }}>
+                                {ticket.description || "No description provided."}
                             </Typography>
-                            <Chip label={comments.length} size="small" sx={{ fontWeight: 700, height: 20 }} />
-                        </Box>
+                            {renderAttachments(ticket.attachments)}
+                        </SidebarItem>
 
-                        <Stack spacing={4} sx={{ mb: 10 }}>
-                            {/* REPLY INPUT */}
-                            <Box sx={{ display: 'flex', gap: 2, p: 2.5, borderRadius: 2, bgcolor: '#f1f5f966', border: '1px dashed #CBD5E1' }}>
-                                <Avatar sx={{ width: 36, height: 36, bgcolor: 'primary.main', fontWeight: 600 }}>
-                                    {getInitials(currentUser?.name)}
-                                </Avatar>
-                                <Box sx={{ flex: 1 }}>
-                                    <TextField
-                                        fullWidth multiline minRows={2}
-                                        placeholder="Type your response here..."
-                                        value={replyText}
-                                        onChange={(e) => setReplyText(e.target.value)}
-                                        sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#fff', borderRadius: 1.5 } }}
+                        <Divider sx={{ mb: 4 }} />
+
+                        <SidebarItem label="Ticket Settings">
+                            <Box sx={{ mb: 3 }}>
+                                <Typography variant="caption" sx={{ color: 'text.secondary', mb: 0.5, display: 'block', fontWeight: 600 }}>Status</Typography>
+                                {isAdmin || isSupport ? (
+                                    <Select
+                                        fullWidth size="small"
+                                        value={statusKey}
+                                        onChange={(e) => handleStatusChange(e.target.value)}
+                                        sx={{
+                                            borderRadius: 2,
+                                            fontWeight: 600,
+                                            fontSize: '0.875rem',
+                                            bgcolor: '#F1F5F9',
+                                            '& fieldset': { border: 'none' }
+                                        }}
+                                    >
+                                        <MenuItem value="open">Open</MenuItem>
+                                        <MenuItem value="pending">Pending</MenuItem>
+                                        <MenuItem value="solved">Solved</MenuItem>
+                                        <MenuItem value="spam">Spam</MenuItem>
+                                    </Select>
+                                ) : (
+                                    <Chip
+                                        label={statusKey.toUpperCase()}
+                                        sx={{ bgcolor: statusColor + '15', color: statusColor, fontWeight: 800, borderRadius: 1.5 }}
                                     />
-                                    {selectedFiles.length > 0 && (
-                                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
-                                            {selectedFiles.map((file, idx) => (
-                                                <Chip
-                                                    key={idx}
-                                                    label={file.name}
-                                                    size="small"
-                                                    onDelete={() => handleRemoveFile(idx)}
-                                                    deleteIcon={<CloseIcon sx={{ fontSize: 14 }} />}
-                                                    sx={{
-                                                        borderRadius: '8px',
-                                                        fontSize: '0.72rem',
-                                                        fontWeight: 500,
-                                                        bgcolor: '#EFF6FF',
-                                                        color: '#1E40AF',
-                                                        border: '1px solid #BFDBFE'
-                                                    }}
-                                                />
-                                            ))}
-                                        </Stack>
-                                    )}
-                                    <input
-                                        type="file"
-                                        multiple
-                                        ref={fileInputRef}
-                                        onChange={handleFileSelect}
-                                        style={{ display: 'none' }}
-                                        accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
-                                    />
-                                    <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1.5 }}>
-                                        <Button
-                                            startIcon={<AttachFileIcon />}
-                                            size="small"
-                                            onClick={() => fileInputRef.current?.click()}
-                                            sx={{ textTransform: 'none', color: 'text.secondary' }}
-                                        >
-                                            Attach files
-                                        </Button>
-                                        <Button
-                                            variant="contained"
-                                            disabled={(!replyText.trim() && selectedFiles.length === 0) || sending}
-                                            onClick={handleSendMessage}
-                                            endIcon={sending ? <CircularProgress size={16} color="inherit" /> : <SendIcon />}
-                                            sx={{ borderRadius: 2, px: 3, fontWeight: 700, textTransform: 'none' }}
-                                        >
-                                            Send Message
-                                        </Button>
-                                    </Stack>
-                                </Box>
+                                )}
                             </Box>
 
-                            {/* COMMENTS LIST */}
-                            {comments.map((comment) => (
+                            <Box sx={{ mb: 3 }}>
+                                <Typography variant="caption" sx={{ color: 'text.secondary', mb: 0.5, display: 'block', fontWeight: 600 }}>Assigned To</Typography>
+                                <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="space-between" sx={{ p: 1, border: '1px solid #F1F5F9', borderRadius: 2 }}>
+                                    <Stack direction="row" spacing={1.5} alignItems="center">
+                                        <Avatar sx={{ width: 28, height: 28, fontSize: '0.75rem', bgcolor: assigneeName === 'unassigned' ? '#F1F5F9' : 'primary.main' }}>
+                                            {assigneeName !== 'unassigned' ? getInitials(assigneeName) : '?'}
+                                        </Avatar>
+                                        <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.85rem' }}>{assigneeName}</Typography>
+                                    </Stack>
+                                    {(isAdmin || isSupport) && (
+                                        <Button size="small" variant="text" onClick={openAssignModal} sx={{ textTransform: 'none', fontWeight: 600, minWidth: 'auto', p: 0.5, fontSize: '0.75rem' }}>
+                                            {ticket.assignee ? 'Reassign' : 'Assign'}
+                                        </Button>
+                                    )}
+                                </Stack>
+                            </Box>
+
+                            <Box>
+                                <Typography variant="caption" sx={{ color: 'text.secondary', mb: 0.5, display: 'block', fontWeight: 600 }}>Requester</Typography>
+                                <Stack direction="row" spacing={1.5} alignItems="center" sx={{ p: 1, border: '1px solid #F1F5F9', borderRadius: 2 }}>
+                                    <Avatar sx={{ width: 28, height: 28, fontSize: '0.75rem', bgcolor: stringToColor(requesterName) }}>
+                                        {getInitials(requesterName)}
+                                    </Avatar>
+                                    <Box>
+                                        <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.85rem' }}>{requesterName}</Typography>
+                                        <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontSize: '0.7rem' }} noWrap>{requesterEmail}</Typography>
+                                    </Box>
+                                </Stack>
+                            </Box>
+                        </SidebarItem>
+
+                        <Box sx={{ mt: 4, pt: 2, borderTop: '1px solid #F1F5F9' }}>
+                            <Stack spacing={1.5}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
+                                    <AccessTimeIcon sx={{ fontSize: 14 }} />
+                                    <Typography variant="caption" sx={{ fontWeight: 500 }}>
+                                        Created: {new Date(ticket.createdAt).toLocaleString()}
+                                    </Typography>
+                                </Box>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
+                                    <AccessTimeIcon sx={{ fontSize: 14 }} />
+                                    <Typography variant="caption" sx={{ fontWeight: 500 }}>
+                                        Last Update: {ticket.updatedAt ? getTimeAgo(ticket.updatedAt) : 'recently'}
+                                    </Typography>
+                                </Box>
+                            </Stack>
+                        </Box>
+                    </Box>
+                </Box>
+
+                {/* RIGHT PANEL: Conversation History (Main Highlight) */}
+                <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', bgcolor: '#F1F5F9', position: 'relative', overflow: 'hidden' }}>
+
+                    {/* Conversation Header */}
+                    <Box sx={{
+                        px: { xs: 2, md: 4 },
+                        py: 1,
+                        bgcolor: '#fff',
+                        borderBottom: '1px solid #E2E8F0',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                    }}>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                            <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#0F172A' }}>
+                                Conversation
+                            </Typography>
+                            <Chip
+                                label={comments.length}
+                                size="small"
+                                sx={{
+                                    fontWeight: 700,
+                                    height: 20,
+                                    bgcolor: '#E2E8F0',
+                                    color: '#475569',
+                                    fontSize: '0.7rem'
+                                }}
+                            />
+                        </Stack>
+                    </Box>
+
+                    {/* Scrollable Comments List */}
+                    <Box sx={{ flex: 1, overflowY: 'auto', px: { xs: 2, md: 4 }, py: 3, display: 'flex', flexDirection: 'column' }}>
+                        <Stack spacing={2.5}>
+                            {comments.map((comment, index) => (
                                 <Box key={comment._id} sx={{
                                     display: 'flex',
                                     gap: 2,
-                                    p: 2,
-                                    borderRadius: 2,
+                                    p: 2.5,
+                                    borderRadius: 3,
+                                    bgcolor: '#fff',
+                                    boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                                    border: '1px solid #E2E8F0',
                                     transition: '0.2s',
-                                    '&:hover': { bgcolor: '#F8FAFC' }
+                                    maxWidth: '85%',
+                                    alignSelf: comment.user?._id === currentUser?._id ? 'flex-end' : 'flex-start',
+                                    '&:hover': { boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }
                                 }}>
-                                    <Avatar sx={{ width: 36, height: 36, bgcolor: stringToColor(comment.user?.name), fontSize: '0.85rem' }}>
+                                    <Avatar sx={{
+                                        width: 32,
+                                        height: 32,
+                                        bgcolor: stringToColor(comment.user?.name),
+                                        fontSize: '0.8rem'
+                                    }}>
                                         {getInitials(comment.user?.name)}
                                     </Avatar>
-                                    <Box sx={{ flex: 1 }}>
-                                        <Stack direction="row" alignItems="center" justifyContent="space-between">
+                                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                                        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 0.5 }}>
                                             <Stack direction="row" spacing={1} alignItems="center">
-                                                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                                                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#1E293B', fontSize: '0.85rem' }}>
                                                     {comment.user?.name}
                                                 </Typography>
                                                 <Typography variant="caption" sx={{ color: 'text.disabled' }}>
-                                                    • {getTimeAgo(comment.createdAt)}
+                                                    {getTimeAgo(comment.createdAt)}
                                                 </Typography>
                                             </Stack>
 
-                                            {isAdmin && (
+                                            {(isAdmin || currentUser?._id === comment.user?._id) && (
                                                 <IconButton
                                                     size="small"
-                                                    onClick={() => handleDeleteComment(comment._id)}
-                                                    sx={{ color: 'text.disabled', '&:hover': { color: '#ef4444' } }}
+                                                    onClick={() => confirmDeleteComment(comment._id)}
+                                                    sx={{ color: 'text.disabled', '&:hover': { color: '#ef4444' }, p: 0.5 }}
                                                 >
-                                                    <DeleteOutlineIcon fontSize="small" />
+                                                    <DeleteOutlineIcon sx={{ fontSize: 16 }} />
                                                 </IconButton>
                                             )}
                                         </Stack>
-                                        <Typography variant="body2" sx={{ mt: 0.5, color: '#475569', lineHeight: 1.6 }}>
+                                        <Typography variant="body2" sx={{ color: '#334155', lineHeight: 1.6, fontSize: '0.9rem', wordBreak: 'break-word' }}>
                                             {comment.text}
                                         </Typography>
                                         {renderAttachments(comment.attachments)}
                                     </Box>
                                 </Box>
                             ))}
+                            {comments.length === 0 && (
+                                <Box sx={{ py: 10, textAlign: 'center' }}>
+                                    <Typography variant="body2" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
+                                        No comments yet. Start the conversation!
+                                    </Typography>
+                                </Box>
+                            )}
+                            <div ref={messagesEndRef} />
                         </Stack>
+                        {/* Space for anchored reply box */}
+                        <Box sx={{ minHeight: 80 }} />
                     </Box>
 
-                    {/* RIGHT SIDEBAR (Fixed Meta) */}
-                    <Box sx={{ width: 300, borderLeft: '1px solid #E2E8F0', p: 4, bgcolor: '#fff', display: { xs: 'none', lg: 'block' } }}>
-
-                        <SidebarItem label="Status">
-                            {isAdmin || isSupport ? (
-                                <Select
-                                    fullWidth size="small"
-                                    value={statusKey}
-                                    onChange={(e) => handleStatusChange(e.target.value)}
-                                    sx={{ borderRadius: 2, fontWeight: 700, bgcolor: '#F1F5F9', '& fieldset': { border: 'none' } }}
-                                >
-                                    <MenuItem value="open">Open</MenuItem>
-                                    <MenuItem value="pending">Pending</MenuItem>
-                                    <MenuItem value="solved">Solved</MenuItem>
-                                    <MenuItem value="spam">Spam</MenuItem>
-                                </Select>
-                            ) : (
-                                <Chip
-                                    label={statusKey.toUpperCase()}
-                                    sx={{ bgcolor: statusColor + '15', color: statusColor, fontWeight: 800, borderRadius: 1.5 }}
+                    {/* Anchored Reply Box */}
+                    <Box sx={{
+                        position: 'absolute',
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        p: 1,
+                        bgcolor: 'rgba(255,255,255,0.8)',
+                        backdropFilter: 'blur(8px)',
+                        borderTop: '1px solid #E2E8F0',
+                        zIndex: 20
+                    }}>
+                        <Box sx={{
+                            display: 'flex',
+                            gap: 1,
+                            p: 1,
+                            borderRadius: 2,
+                            bgcolor: '#fff',
+                            border: '1px solid #CBD5E1',
+                            boxShadow: '0 -1px 8px rgba(0,0,0,0.02)'
+                        }}>
+                            <Avatar sx={{ width: 28, height: 28, bgcolor: 'primary.main', fontWeight: 600, fontSize: '0.75rem' }}>
+                                {getInitials(currentUser?.name)}
+                            </Avatar>
+                            <Box sx={{ flex: 1 }}>
+                                <TextField
+                                    fullWidth multiline minRows={1} maxRows={4}
+                                    placeholder="Type your message..."
+                                    variant="standard"
+                                    value={replyText}
+                                    onChange={(e) => setReplyText(e.target.value)}
+                                    InputProps={{
+                                        disableUnderline: true,
+                                        sx: { fontSize: '0.875rem', py: 0.25 }
+                                    }}
                                 />
-                            )}
-                        </SidebarItem>
-
-                        <SidebarItem label="Assignee">
-                            <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="space-between">
-                                <Stack direction="row" spacing={1.5} alignItems="center">
-                                    <Avatar sx={{ width: 32, height: 32, fontSize: '0.8rem', bgcolor: assigneeName === 'unassigned' ? '#F1F5F9' : 'primary.main', color: assigneeName === 'unassigned' ? 'text.secondary' : '#fff' }}>
-                                        {assigneeName !== 'unassigned' ? getInitials(assigneeName) : '?'}
-                                    </Avatar>
-                                    <Box>
-                                        <Typography variant="body2" sx={{ fontWeight: 700 }}>{assigneeName}</Typography>
-                                        <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>{assigneeEmail || 'No agent assigned'}</Typography>
-                                    </Box>
-                                </Stack>
-                                {(isAdmin || isSupport) && (
-                                    <Button size="small" variant="text" onClick={openAssignModal} sx={{ textTransform: 'none', fontWeight: 600, minWidth: 'auto', p: 0.5 }}>
-                                        {ticket?.assignee ? "Reassign" : "Assign"}
-                                    </Button>
+                                {selectedFiles.length > 0 && (
+                                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
+                                        {selectedFiles.map((file, idx) => (
+                                            <Chip
+                                                key={idx}
+                                                label={file.name}
+                                                size="small"
+                                                onDelete={() => handleRemoveFile(idx)}
+                                                deleteIcon={<CloseIcon sx={{ fontSize: 12 }} />}
+                                                sx={{
+                                                    borderRadius: '6px',
+                                                    fontSize: '0.65rem',
+                                                    fontWeight: 600,
+                                                    bgcolor: '#EFF6FF',
+                                                    color: '#1E40AF',
+                                                    border: '1px solid #BFDBFE'
+                                                }}
+                                            />
+                                        ))}
+                                    </Stack>
                                 )}
-                            </Stack>
-                        </SidebarItem>
-
-                        <SidebarItem label="Requester">
-                            <Stack direction="row" spacing={1.5} alignItems="center">
-                                <Avatar sx={{ width: 32, height: 32, fontSize: '0.8rem', bgcolor: stringToColor(requesterName) }}>
-                                    {getInitials(requesterName)}
-                                </Avatar>
-                                <Box>
-                                    <Typography variant="body2" sx={{ fontWeight: 700 }}>{requesterName}</Typography>
-                                    <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>{requesterEmail}</Typography>
-                                </Box>
-                            </Stack>
-                        </SidebarItem>
-
-                        <Divider sx={{ my: 4 }} />
-
-                        <Stack spacing={2}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
-                                <AccessTimeIcon sx={{ fontSize: 16 }} />
-                                <Typography variant="caption" sx={{ fontWeight: 500 }}>
-                                    Updated {ticket.updatedAt ? getTimeAgo(ticket.updatedAt) : 'recently'}
-                                </Typography>
+                                <input
+                                    type="file"
+                                    multiple
+                                    ref={fileInputRef}
+                                    onChange={handleFileSelect}
+                                    style={{ display: 'none' }}
+                                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                                />
+                                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1 }}>
+                                    <IconButton
+                                        size="small"
+                                        onClick={() => fileInputRef.current?.click()}
+                                        sx={{ color: 'text.secondary' }}
+                                    >
+                                        <AttachFileIcon sx={{ fontSize: 18 }} />
+                                    </IconButton>
+                                    <Button
+                                        variant="contained"
+                                        disabled={(!replyText.trim() && selectedFiles.length === 0) || sending}
+                                        onClick={handleSendMessage}
+                                        size="small"
+                                        endIcon={sending ? <CircularProgress size={14} color="inherit" /> : <SendIcon sx={{ fontSize: 14 }} />}
+                                        sx={{
+                                            borderRadius: '8px',
+                                            px: 2.5,
+                                            py: 0.75,
+                                            fontWeight: 700,
+                                            textTransform: 'none',
+                                            boxShadow: 'none'
+                                        }}
+                                    >
+                                        Send
+                                    </Button>
+                                </Stack>
                             </Box>
-                        </Stack>
+                        </Box>
                     </Box>
                 </Box>
             </Box>
 
-            {/* Assign Modal */}
             <AssignModal
                 open={assignModalOpen}
                 onClose={closeAssignModal}
@@ -591,7 +714,7 @@ const TicketDetail = ({ ticket, onClose }) => {
                 users={users}
                 currentUser={currentUser}
             />
-        </>
+        </Box>
     );
 };
 

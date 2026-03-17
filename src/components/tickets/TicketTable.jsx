@@ -36,6 +36,7 @@ import moment from 'moment';
 import ActionMenu from '../common/ActionMenu';
 import { TablePagination } from "@mui/material";
 import AssignModal from '../common/AssignModel';
+import socket from '../../socketio/socket';
 
 const statusColors = {
     solved: { bgcolor: '#10B981' },
@@ -208,24 +209,40 @@ const TicketTable = ({ onTicketClick, selectedTicketId }) => {
 
     useEffect(() => {
         if (token) {
-            const params = {};
-            if (filters.status) params.status = filters.status;
-            if (filters.search) params.search = filters.search;
-            if (filters.unassigned) params.unassigned = 'true';
-            if (filters.myTickets) params.myTickets = 'true';
-            params.page = filters.page;
-            params.limit = filters.limit;
+            const fetchCurrentTickets = () => {
+                const params = {};
+                if (filters.status) params.status = filters.status;
+                if (filters.search) params.search = filters.search;
+                if (filters.unassigned) params.unassigned = 'true';
+                if (filters.myTickets) params.myTickets = 'true';
+                params.page = filters.page;
+                params.limit = filters.limit;
 
-            // Sorting logic
-            if (filters.sortBy) {
-                params.sort = filters.order === 'desc' ? `-${filters.sortBy}` : filters.sortBy;
-            }
+                if (filters.sortBy) {
+                    params.sort = filters.order === 'desc' ? `-${filters.sortBy}` : filters.sortBy;
+                }
 
-            dispatch(fetchTickets({ token, params }));
+                dispatch(fetchTickets({ token, params }));
+            };
+
+            fetchCurrentTickets();
+
+            // Socket listeners for real-time updates
+            const handleRefresh = () => fetchCurrentTickets();
+
+            socket.on("ticketListUpdated", handleRefresh);
+            socket.on("newTicket", handleRefresh);
+            socket.on("ticketDeleted", handleRefresh);
 
             if (isAdmin) {
                 dispatch(fetchUsers({ token }));
             }
+
+            return () => {
+                socket.off("ticketListUpdated", handleRefresh);
+                socket.off("newTicket", handleRefresh);
+                socket.off("ticketDeleted", handleRefresh);
+            };
         }
     }, [dispatch, token, filters, isAdmin, isSupport]);
 

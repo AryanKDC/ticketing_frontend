@@ -62,6 +62,9 @@ const commentsSlice = createSlice({
                 state.comments.push(action.payload);
             }
         },
+        removeCommentLocal: (state, action) => {
+            state.comments = state.comments.filter((c) => c._id !== action.payload);
+        },
         clearCommentsError: (state) => {
             state.error = null;
         },
@@ -106,5 +109,5 @@ const commentsSlice = createSlice({
     },
 });
 
-export const { clearComments, receiveComment, clearCommentsError } = commentsSlice.actions;
+export const { clearComments, receiveComment, removeCommentLocal, clearCommentsError } = commentsSlice.actions;
 export default commentsSlice.reducer;
