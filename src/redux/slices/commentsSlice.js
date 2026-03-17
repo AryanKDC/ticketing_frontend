@@ -56,6 +56,12 @@ const commentsSlice = createSlice({
         clearComments: (state) => {
             state.comments = [];
         },
+        receiveComment: (state, action) => {
+            const exists = state.comments.some(c => c._id === action.payload._id);
+            if (!exists) {
+                state.comments.push(action.payload);
+            }
+        },
         clearCommentsError: (state) => {
             state.error = null;
         },
@@ -81,7 +87,10 @@ const commentsSlice = createSlice({
                 state.error = null;
             })
             .addCase(addComment.fulfilled, (state, action) => {
-                state.comments.push(action.payload);
+                const exists = state.comments.some(c => c._id === action.payload._id);
+                if (!exists) {
+                    state.comments.push(action.payload);
+                }
             })
             .addCase(addComment.rejected, (state, action) => {
                 state.error = action.payload;
@@ -97,5 +106,5 @@ const commentsSlice = createSlice({
     },
 });
 
-export const { clearComments, clearCommentsError } = commentsSlice.actions;
+export const { clearComments, receiveComment, clearCommentsError } = commentsSlice.actions;
 export default commentsSlice.reducer;

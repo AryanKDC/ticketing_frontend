@@ -23,11 +23,12 @@ import CloseIcon from '@mui/icons-material/Close';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import InsertDriveFileOutlinedIcon from '@mui/icons-material/InsertDriveFileOutlined';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchComments, addComment, removeComment, clearComments } from '../../redux/slices/commentsSlice';
-import { editTicket, fetchTickets, assignTicket } from '../../redux/slices/ticketsSlice';
-import { fetchUsers } from '../../redux/slices/usersSlice';
 import { toast } from 'sonner';
 import AssignModal from '../common/AssignModel';
+import socket from '../../socketio/socket';
+import { receiveComment, fetchComments, addComment, removeComment, clearComments } from '../../redux/slices/commentsSlice';
+import { editTicket, fetchTickets, assignTicket } from '../../redux/slices/ticketsSlice';
+import { fetchUsers } from '../../redux/slices/usersSlice';
 
 const BACKEND_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
 
@@ -65,6 +66,23 @@ const TicketDetail = ({ ticket, onClose }) => {
     const isSupport = currentUser?.type === 'support';
 
     useEffect(() => {
+        if (!ticketId) return;
+
+        socket.emit("joinTicket", ticketId);
+
+        const handleNewComment = (comment) => {
+            dispatch(receiveComment(comment));
+        };
+
+        socket.on("newComment", handleNewComment);
+
+        return () => {
+            socket.emit("leaveTicket", ticketId);
+            socket.off("newComment", handleNewComment);
+        };
+    }, [ticketId, dispatch]);
+
+    useEffect(() => {
         if (token && (isAdmin || isSupport)) {
             dispatch(fetchUsers({ token }));
         }
@@ -96,7 +114,6 @@ const TicketDetail = ({ ticket, onClose }) => {
             toast.success("Comment added!");
             setReplyText('');
             setSelectedFiles([]);
-            dispatch(fetchComments({ ticketId, token }));
         } catch (err) {
             toast.error(typeof err === 'string' ? err : (err?.message || "Failed to add comment"));
         } finally {
@@ -349,7 +366,7 @@ const TicketDetail = ({ ticket, onClose }) => {
 
                     {/* Left Content */}
                     <Box sx={{ flex: 1, overflowY: 'auto', px: { xs: 3, md: 6 }, py: 4 }}>
-                        <Typography variant="h4" sx={{ fontWeight: 800, mb: 1, color: '#0F172A', letterSpacing: '-0.02em' }}>
+                        <Typography variant="h5" sx={{ fontWeight: 800, mb: 1, color: '#0F172A', letterSpacing: '-0.02em' }}>
                             {ticket.subject}
                         </Typography>
 

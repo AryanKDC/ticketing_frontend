@@ -38,6 +38,11 @@ function App() {
             <TicketsPage />
           </PrivateRoute>
         } />
+        <Route path="/tickets/:id" element={
+          <PrivateRoute>
+            <TicketsPage />
+          </PrivateRoute>
+        } />
         <Route path="/users" element={
           <AdminRoute>
             <MainLayout>

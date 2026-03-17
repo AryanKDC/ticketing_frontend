@@ -50,6 +50,7 @@ const Sidebar = () => {
     const [searchInput, setSearchInput] = useState(filters.search || '');
 
     const isTicketsRoute = location.pathname.startsWith('/tickets');
+    const isTicketDetail = /^\/tickets\/[^/]+$/.test(location.pathname);
     const isUsersRoute = location.pathname.startsWith('/users');
 
     const isAdmin = user?.type === 'admin';
@@ -134,7 +135,7 @@ const Sidebar = () => {
                     sx={{
                         color: '#ffffff',
                         fontWeight: 800,
-                        fontSize: '0.65rem',
+                        fontSize: '0.9rem',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -158,7 +159,7 @@ const Sidebar = () => {
                         sx={{
                             color: '#fff',
                             fontWeight: 600,
-                            fontSize: "0.8rem",
+                            fontSize: "1rem",
                             whiteSpace: 'nowrap'
                         }}
                     >
@@ -189,7 +190,7 @@ const Sidebar = () => {
                                     mr: isExpanded ? 1 : 'auto',
                                     justifyContent: 'center',
                                     color: 'inherit',
-                                    '& svg': { fontSize: 18 }
+                                    '& svg': { fontSize: 22 }
                                 }}
                             >
                                 {item.active && item.label === 'Tickets' ? (
@@ -209,7 +210,7 @@ const Sidebar = () => {
                                     opacity: isExpanded ? 1 : 0,
                                     '& .MuiTypography-root': {
                                         fontWeight: 600,
-                                        fontSize: '0.75rem'
+                                        fontSize: '0.9rem'
                                     }
                                 }}
                             />
@@ -220,7 +221,7 @@ const Sidebar = () => {
                 <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.05)', my: 1 }} />
 
                 {/* Sub-menu for Tickets when expanded and no ticket is selected */}
-                {isExpanded && isTicketsRoute && !selectedTicket && (
+                {isExpanded && isTicketsRoute && !isTicketDetail && (
                     <Box sx={{ px: 0.5 }}>
                         <Box
                             sx={{
@@ -237,7 +238,7 @@ const Sidebar = () => {
                                     color: '#64748B',
                                     fontWeight: 700,
                                     letterSpacing: '0.08em',
-                                    fontSize: '0.6rem'
+                                    fontSize: '0.75rem'
                                 }}
                             >
                                 FILTERS
@@ -256,13 +257,13 @@ const Sidebar = () => {
                                 borderRadius: '8px',
                             }}
                         >
-                            <SearchIcon sx={{ color: '#64748B', fontSize: 14 }} />
+                            <SearchIcon sx={{ color: '#64748B', fontSize: 18 }} />
 
                             <InputBase
                                 sx={{
                                     ml: 0.5,
                                     flex: 1,
-                                    fontSize: '0.7rem',
+                                    fontSize: '0.85rem',
                                     color: '#CBD5E1'
                                 }}
                                 placeholder="Search..."
@@ -296,7 +297,7 @@ const Sidebar = () => {
                                                 sx: {
                                                     fontWeight: isActive ? 700 : 500,
                                                     color: isActive ? '#fff' : '#94A3B8',
-                                                    fontSize: '0.72rem'
+                                                    fontSize: '0.85rem'
                                                 }
                                             }}
                                         />
@@ -330,7 +331,7 @@ const Sidebar = () => {
                                             color: (!filters.status && !filters.unassigned && !filters.myTickets)
                                                 ? '#fff'
                                                 : '#94A3B8',
-                                            fontSize: '0.72rem'
+                                            fontSize: '0.85rem'
                                         }
                                     }}
                                 />
@@ -362,7 +363,7 @@ const Sidebar = () => {
                                 mr: isExpanded ? 1 : 'auto',
                                 justifyContent: 'center',
                                 color: 'inherit',
-                                '& svg': { fontSize: 18 }
+                                '& svg': { fontSize: 22 }
                             }}
                         >
                             <LogoutIcon />
@@ -372,7 +373,7 @@ const Sidebar = () => {
                             primary="Logout"
                             sx={{
                                 opacity: isExpanded ? 1 : 0,
-                                '& .MuiTypography-root': { fontSize: '0.75rem' }
+                                '& .MuiTypography-root': { fontSize: '0.9rem' }
                             }}
                         />
                     </ListItemButton>
@@ -401,7 +402,7 @@ const Sidebar = () => {
                                     height: 24,
                                     border: '2px solid #10B981',
                                     boxShadow: '0 0 6px rgba(16, 185, 129, 0.3)',
-                                    fontSize: '0.65rem',
+                                    fontSize: '0.8rem',
                                     fontWeight: 700,
                                 }}
                             >
@@ -415,14 +416,14 @@ const Sidebar = () => {
                                 sx: {
                                     color: '#fff',
                                     fontWeight: 600,
-                                    fontSize: '0.72rem'
+                                    fontSize: '0.85rem'
                                 }
                             }}
                             secondary={user?.type || "Role"}
                             secondaryTypographyProps={{
                                 sx: {
                                     color: '#64748B',
-                                    fontSize: '0.65rem'
+                                    fontSize: '0.75rem'
                                 }
                             }}
                             sx={{ opacity: isExpanded ? 1 : 0 }}
